@@ -1,33 +1,63 @@
-myApp.factory('Authentication', ['$rootScope', '$firebaseAuth', function ($rootScope, $firebaseAuth) {
+myApp.factory('Authentication', ['$rootScope', '$location', '$firebaseObject', '$firebaseAuth',
+  function ($rootScope, $location, $firebaseObject, $firebaseAuth) {
 
-  var ref = firebase.database().ref();
-  var auth = $firebaseAuth();
+    var ref = firebase.database().ref();
+    var auth = $firebaseAuth();
+    var myObject;
 
-  return {
-    login: function (user) {
-      $rootScope.message = "Welcome " + $rootScope.user.email;
-    }, //login
+    auth.$onAuthStateChanged(function (authUser) {
+      if (authUser) {
+        var userRef = ref.child('users').child(authUser.uid);
+        var userObj = $firebaseObject(userRef);
+        $rootScope.currentUser = userObj;
+      } else {
+        $rootScope.currentUser = '';
+      }
+    }); //onAuthStateChanged
 
-    register: function (user) {
+    myObject = {
+      login: function (user) {
 
-      auth.$createUserWithEmailAndPassword(
-        user.email,
-        user.password
-      ).then(function (regUser) {
-        var regRef = ref.child('users').child(regUser.user.uid).set({
-          date: firebase.database.ServerValue.TIMESTAMP,
-          regUser: regUser.user.uid,
-          firstname: user.firstname,
-          lastname: user.lastname,
-          email: user.email
-        }); //User info
-        $rootScope.message = "Hi " + user.firstname + ". Thanks for registering";
-      }).catch(function (error) {
-        $rootScope.message = error.message;
-      }); //createUserWithEmailAndPassword
+        auth.$signInWithEmailAndPassword(
+          user.email,
+          user.password
+        ).then(function (user) {
+          $location.path('/success');
+        }).catch(function (error) {
+          $rootScope.message = error.message;
+        }); //signInWithEmailAndPassword
 
-    } //register
+      }, //login
+      logout: function () {
+        return auth.$signOut();
+      }, //logout
 
-  }; //return
+      requireAuth: function () {
+        return auth.$requireSignIn();
+      }, //require Authentication
 
-}]); //factory
+      register: function (user) {
+
+        auth.$createUserWithEmailAndPassword(
+          user.email,
+          user.password
+        ).then(function (regUser) {
+          var regRef = ref.child('users').child(regUser.user.uid).set({
+            date: firebase.database.ServerValue.TIMESTAMP,
+            regUser: regUser.user.uid,
+            firstname: user.firstname,
+            lastname: user.lastname,
+            email: user.email
+          }); //User info
+          myObject.login(user);
+        }).catch(function (error) {
+          $rootScope.message = error.message;
+        }); //createUserWithEmailAndPassword
+
+      } //register
+    }; //myObject
+
+    return myObject;
+
+  }
+]); //factory
